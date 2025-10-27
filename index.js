@@ -58,32 +58,37 @@ client.on('messageCreate', async (msg) => {
   }
 
   // --- Generate Invoice ---
-  if (cmd === '!generate') {
-    if (!currentBuyer) return msg.reply('❌ Set buyer first using `!buyer`');
-    if (items.length === 0) return msg.reply('❌ Add items first using `!additem`');
+ if (cmd === '!generate') {
+  if (!currentBuyer) return msg.reply('❌ Set buyer first using `!buyer`');
+  if (items.length === 0) return msg.reply('❌ Add items first using `!additem`');
 
-    const invoiceNum = `INV-${Math.floor(Math.random() * 9000 + 1000)}`;
-    const filename = `Invoice_${currentBuyer.username}_${Date.now()}.pdf`;
-    const filepath = path.join(__dirname, filename);
-    const doc = new PDFDocument({ margin: 50 });
-    doc.pipe(fs.createWriteStream(filepath));
+  const invoiceNum = `INV-${Math.floor(Math.random() * 9000 + 1000)}`;
+  const filename = `Invoice_${currentBuyer.username}_${Date.now()}.pdf`;
+  const filepath = path.join('/tmp', filename); // ✅ use /tmp for Render
 
-    // --- Optional Logo ---
-    const logoPath = path.join(__dirname, 'logo.png');
-    if (fs.existsSync(logoPath)) {
-      try {
-        doc.image(logoPath, 50, 20, { width: 80 });
-        doc.moveDown(4);
-      } catch (err) {
-        console.log('⚠️ Could not load logo:', err.message);
-      }
+  const doc = new PDFDocument({ margin: 50 });
+  const stream = fs.createWriteStream(filepath);
+  doc.pipe(stream);
+
+  // header + table (same as before)
+  // ...
+  doc.end();
+
+  stream.on('finish', async () => {
+    try {
+      const file = new AttachmentBuilder(filepath);
+      await msg.channel.send({
+        content: `🧾 Invoice generated for **${currentBuyer.name}** (@${currentBuyer.username})`,
+        files: [file],
+      });
+      fs.unlinkSync(filepath);
+    } catch (err) {
+      console.error('❌ Error sending invoice:', err);
+      msg.reply('⚠️ Could not send invoice. Check bot permissions.');
     }
+  });
+}
 
-    // --- Header ---
-    doc.fontSize(22).font('Helvetica-Bold').text('Mischief Bazzar', { align: 'center' });
-    doc.moveDown(0.3);
-    doc.fontSize(12).font('Helvetica-Oblique').text('(A Unit Of BBC & Shararat)', { align: 'center' });
-    doc.moveDown(1.5);
 
     // --- Buyer Info ---
     doc.fontSize(14).font('Helvetica-Bold').text('Buyer Information');
@@ -144,4 +149,5 @@ client.on('messageCreate', async (msg) => {
 
 // ---- Login ----
 client.login(process.env.BOT_TOKEN);
+
 
