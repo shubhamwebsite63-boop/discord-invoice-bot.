@@ -6,22 +6,17 @@ const path = require('path');
 const express = require('express');
 const dayjs = require('dayjs');
 
-// ---- Express server for uptime ----
+// ---- Express server (Render uptime) ----
 const app = express();
 const PORT = process.env.PORT || 3000;
-app.get('/', (req, res) => res.send('Mischief Bazzar Bot Running ✅'));
-app.listen(PORT, () => console.log(`HTTP server listening on port ${PORT}`));
+app.get('/', (req, res) => res.send('✅ Mischief Bazzar Bot is Running'));
+app.listen(PORT, () => console.log(`🌐 HTTP server running on port ${PORT}`));
 
 // ---- Discord Client ----
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
 });
 
-// ---- Presence ----
 client.once('ready', () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
   client.user.setPresence({
@@ -30,11 +25,11 @@ client.once('ready', () => {
   });
 });
 
-// ---- Invoice Data ----
+// ---- Invoice Variables ----
 let currentBuyer = null;
 let items = [];
 
-// ---- Commands ----
+// ---- Command Handler ----
 client.on('messageCreate', async (msg) => {
   if (msg.author.bot || !msg.content.startsWith('!')) return;
 
@@ -43,15 +38,15 @@ client.on('messageCreate', async (msg) => {
 
   // --- Set Buyer ---
   if (cmd === '!buyer') {
-    if (args.length < 3) return msg.reply('Usage: !buyer <BuyerName> <Username>');
+    if (args.length < 3) return msg.reply('Usage: `!buyer <BuyerName> <Username>`');
     currentBuyer = { name: args[1], username: args[2] };
     items = [];
-    return msg.reply(`✅ Buyer set to ${currentBuyer.name} (@${currentBuyer.username})`);
+    return msg.reply(`✅ Buyer set to **${currentBuyer.name}** (@${currentBuyer.username})`);
   }
 
   // --- Add Product ---
   if (cmd === '!additem') {
-    if (args.length < 4) return msg.reply('Usage: !additem <Product> <Qty> <Price>');
+    if (args.length < 4) return msg.reply('Usage: `!additem <Product> <Qty> <Price>`');
     const [_, name, qty, price] = args;
     items.push({
       name,
@@ -59,43 +54,50 @@ client.on('messageCreate', async (msg) => {
       price: parseFloat(price),
       total: parseInt(qty) * parseFloat(price),
     });
-    return msg.reply(`🛒 Added ${qty}× ${name} @ ₹${price}`);
+    return msg.reply(`🛒 Added **${qty}× ${name}** @ ₹${price}`);
   }
 
   // --- Generate Invoice ---
   if (cmd === '!generate') {
-    if (!currentBuyer) return msg.reply('❌ Set buyer first using !buyer');
-    if (items.length === 0) return msg.reply('❌ Add items first using !additem');
+    if (!currentBuyer) return msg.reply('❌ Set buyer first using `!buyer`');
+    if (items.length === 0) return msg.reply('❌ Add items first using `!additem`');
 
+    const invoiceNum = `INV-${Math.floor(Math.random() * 9000 + 1000)}`;
     const filename = `Invoice_${currentBuyer.username}_${Date.now()}.pdf`;
-    const filepath = path.join('/tmp', filename); // safer for hosting
-
-    console.log('Generating invoice at:', filepath);
-
+    const filepath = path.join(__dirname, filename);
     const doc = new PDFDocument({ margin: 50 });
     doc.pipe(fs.createWriteStream(filepath));
 
-    // --- Logo (optional) ---
+    // --- Optional Logo ---
     const logoPath = path.join(__dirname, 'logo.png');
-    if (fs.existsSync(logoPath)) doc.image(logoPath, 460, 20, { width: 100 });
+    if (fs.existsSync(logoPath)) {
+      try {
+        doc.image(logoPath, 50, 20, { width: 80 });
+        doc.moveDown(4);
+      } catch (err) {
+        console.log('⚠️ Could not load logo:', err.message);
+      }
+    }
 
     // --- Header ---
     doc.fontSize(22).font('Helvetica-Bold').text('Mischief Bazzar', { align: 'center' });
     doc.moveDown(0.3);
     doc.fontSize(12).font('Helvetica-Oblique').text('(A Unit Of BBC & Shararat)', { align: 'center' });
-    doc.moveDown(1);
+    doc.moveDown(1.5);
 
     // --- Buyer Info ---
     doc.fontSize(14).font('Helvetica-Bold').text('Buyer Information');
     doc.moveDown(0.3);
     doc.fontSize(12).font('Helvetica')
       .text(`Name: ${currentBuyer.name}`)
-      .text(`Username: @${currentBuyer.username}`);
+      .text(`Username: @${currentBuyer.username}`)
+      .text(`Invoice No: ${invoiceNum}`)
+      .text(`Date: ${dayjs().format('DD MMM YYYY, HH:mm')}`);
     doc.moveDown(1);
 
     // --- Table Header ---
     doc.fontSize(14).font('Helvetica-Bold').text('Product', 50)
-      .text('Qty', 250).text('Price', 320).text('Total', 400);
+       .text('Qty', 250).text('Price', 320).text('Total', 400);
     doc.moveDown(0.3);
     doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
 
@@ -104,8 +106,10 @@ client.on('messageCreate', async (msg) => {
     let grandTotal = 0;
     items.forEach(it => {
       doc.moveDown(0.3);
-      doc.text(it.name, 50).text(it.qty.toString(), 250)
-        .text(`₹${it.price}`, 320).text(`₹${it.total}`, 400);
+      doc.text(it.name, 50)
+         .text(it.qty.toString(), 250)
+         .text(`₹${it.price}`, 320)
+         .text(`₹${it.total}`, 400);
       grandTotal += it.total;
     });
 
@@ -114,25 +118,19 @@ client.on('messageCreate', async (msg) => {
     doc.moveDown(1);
 
     // --- Footer ---
-    doc.fontSize(10).font('Helvetica-Oblique').text('Sold By Mischief Bazzar', { align: 'right' });
+    doc.fontSize(10).font('Helvetica-Oblique').text('Sold by Mischief Bazzar', { align: 'right' });
     doc.moveDown(0.5);
-    doc.fontSize(8).text(`Generated on ${dayjs().format('DD MMM YYYY, HH:mm')}`, { align: 'right' });
+    doc.fontSize(8).text('Thank you for shopping with us!', { align: 'center' });
 
     doc.end();
 
-    doc.on('close', async () => {
-      try {
-        const file = new AttachmentBuilder(filepath);
-        await msg.channel.send({
-          content: `🧾 Invoice for ${currentBuyer.name} (@${currentBuyer.username})`,
-          files: [file],
-        });
-        fs.unlinkSync(filepath);
-        console.log('Invoice sent successfully!');
-      } catch (err) {
-        console.error('Error sending invoice:', err);
-        msg.reply('❌ Error sending invoice.');
-      }
+    doc.on('finish', async () => {
+      const file = new AttachmentBuilder(filepath);
+      await msg.channel.send({
+        content: `🧾 Invoice generated for **${currentBuyer.name}** (@${currentBuyer.username})`,
+        files: [file],
+      });
+      fs.unlinkSync(filepath);
     });
   }
 
@@ -140,9 +138,10 @@ client.on('messageCreate', async (msg) => {
   if (cmd === '!reset') {
     currentBuyer = null;
     items = [];
-    return msg.reply('🔄 Invoice session cleared.');
+    return msg.reply('🔄 Session cleared.');
   }
 });
 
 // ---- Login ----
 client.login(process.env.BOT_TOKEN);
+
