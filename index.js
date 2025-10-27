@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 3000;
 app.get('/', (req, res) => res.send('Mischief Bazzar Bot Running ✅'));
 app.listen(PORT, () => console.log(`HTTP server listening on port ${PORT}`));
 
-// ---- Discord Client (old working style) ----
+// ---- Discord Client ----
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -21,10 +21,9 @@ const client = new Client({
   ],
 });
 
-// ---- Presence / Login (keep old working ready event) ----
+// ---- Presence ----
 client.once('ready', () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
-  // Force online presence
   client.user.setPresence({
     activities: [{ name: 'Mischief Bazzar Invoices 🧾' }],
     status: 'online',
@@ -35,7 +34,7 @@ client.once('ready', () => {
 let currentBuyer = null;
 let items = [];
 
-// ---- Command Handler ----
+// ---- Commands ----
 client.on('messageCreate', async (msg) => {
   if (msg.author.bot || !msg.content.startsWith('!')) return;
 
@@ -69,11 +68,14 @@ client.on('messageCreate', async (msg) => {
     if (items.length === 0) return msg.reply('❌ Add items first using !additem');
 
     const filename = `Invoice_${currentBuyer.username}_${Date.now()}.pdf`;
-    const filepath = path.join(__dirname, filename);
+    const filepath = path.join('/tmp', filename); // safer for hosting
+
+    console.log('Generating invoice at:', filepath);
+
     const doc = new PDFDocument({ margin: 50 });
     doc.pipe(fs.createWriteStream(filepath));
 
-    // --- Logo ---
+    // --- Logo (optional) ---
     const logoPath = path.join(__dirname, 'logo.png');
     if (fs.existsSync(logoPath)) doc.image(logoPath, 460, 20, { width: 100 });
 
@@ -93,7 +95,7 @@ client.on('messageCreate', async (msg) => {
 
     // --- Table Header ---
     doc.fontSize(14).font('Helvetica-Bold').text('Product', 50)
-       .text('Qty', 250).text('Price', 320).text('Total', 400);
+      .text('Qty', 250).text('Price', 320).text('Total', 400);
     doc.moveDown(0.3);
     doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
 
@@ -103,7 +105,7 @@ client.on('messageCreate', async (msg) => {
     items.forEach(it => {
       doc.moveDown(0.3);
       doc.text(it.name, 50).text(it.qty.toString(), 250)
-         .text(`₹${it.price}`, 320).text(`₹${it.total}`, 400);
+        .text(`₹${it.price}`, 320).text(`₹${it.total}`, 400);
       grandTotal += it.total;
     });
 
@@ -118,13 +120,19 @@ client.on('messageCreate', async (msg) => {
 
     doc.end();
 
-    doc.on('finish', async () => {
-      const file = new AttachmentBuilder(filepath);
-      await msg.channel.send({
-        content: `🧾 Invoice for ${currentBuyer.name} (@${currentBuyer.username})`,
-        files: [file],
-      });
-      fs.unlinkSync(filepath);
+    doc.on('close', async () => {
+      try {
+        const file = new AttachmentBuilder(filepath);
+        await msg.channel.send({
+          content: `🧾 Invoice for ${currentBuyer.name} (@${currentBuyer.username})`,
+          files: [file],
+        });
+        fs.unlinkSync(filepath);
+        console.log('Invoice sent successfully!');
+      } catch (err) {
+        console.error('Error sending invoice:', err);
+        msg.reply('❌ Error sending invoice.');
+      }
     });
   }
 
