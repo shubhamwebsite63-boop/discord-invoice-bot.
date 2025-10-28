@@ -1,51 +1,96 @@
-import { Client, GatewayIntentBits, Events } from "discord.js";
-import fs from "fs";
-import PDFDocument from "pdfkit";
-import path from "path";
-import { fileURLToPath } from "url";
+import 'dotenv/config';
+import express from "express";
+import { Client, GatewayIntentBits, Partials, EmbedBuilder, StringSelectMenuBuilder, ActionRowBuilder, Events } from "discord.js";
+import products from "./products.json" assert { type: "json" };
 
-// for PDF file paths in ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Web server for Render uptime
+const app = express();
+app.get("/", (req, res) => res.send("✅ Invoice Bot Running"));
+app.listen(process.env.PORT || 3000);
 
-// load environment variable
-const TOKEN = process.env.BOT_TOKEN;
-
+// Bot Client
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+  partials: [Partials.Channel],
 });
 
-// Slash command: /invoice
+// Per-channel invoice sessions
+let sessions = {};
+
+// Slash commands handler
+client.on(Events.InteractionCreate, async (interaction) => {
+  if (!interaction.isChatInputCommand() && !interaction.isStringSelectMenu()) return;
+
+  const channelId = interaction.channel.id;
+
+  // Start Invoice
+  if (interaction.commandName === "invoice") {
+    sessions[channelId] = { buyer: interaction.user.username, items: [] };
+
+    const productMenu = new StringSelectMenuBuilder()
+      .setCustomId("productSelect")
+      .setPlaceholder("Select a product")
+      .addOptions(products.map(p => ({
+        label: p.name,
+        description: `$${p.price.toFixed(2)}`,
+        value: p.name
+      })));
+
+    return interaction.reply({
+      content: `✅ Invoice started for **${interaction.user.username}**.\nSelect a product:`,
+      components: [new ActionRowBuilder().addComponents(productMenu)]
+    });
+  }
+
+  // Product Selected → Ask Quantity
+  if (interaction.isStringSelectMenu() && interaction.customId === "productSelect") {
+    const selectedProduct = products.find(p => p.name === interaction.values[0]);
+    sessions[channelId].selected = selectedProduct;
+
+    return interaction.reply(`📦 **${selectedProduct.name}** selected.\n➡️ Send quantity (just type a number):`);
+  }
+});
+
+// Text message listener for quantity input
+client.on("messageCreate", (msg) => {
+  const channelId = msg.channel.id;
+  if (!sessions[channelId] || !sessions[channelId].selected) return;
+  if (msg.author.bot) return;
+
+  const qty = parseInt(msg.content);
+  if (isNaN(qty) || qty <= 0) return msg.reply("❌ Enter a valid number.");
+
+  const item = sessions[channelId].selected;
+  sessions[channelId].items.push({ name: item.name, qty, price: item.price });
+
+  sessions[channelId].selected = null;
+
+  msg.reply(`✅ Added **${qty} × ${item.name}** ($${item.price.toFixed(2)} each)\nType **/invoice generate** when done.`);
+});
+
+// Generate Invoice
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
-  if (interaction.commandName !== "invoice") return;
+  const channelId = interaction.channel.id;
 
-  const user = interaction.options.getUser("user");
-  const product = interaction.options.getString("product");
-  const price = interaction.options.getString("price");
+  if (interaction.commandName === "invoice-generate") {
+    const session = sessions[channelId];
+    if (!session || session.items.length === 0) return interaction.reply("❌ No items added.");
 
-  // Create PDF
-  const invoicePath = path.join(__dirname, "invoice.pdf");
-  const doc = new PDFDocument();
-  doc.pipe(fs.createWriteStream(invoicePath));
+    let total = 0;
+    let list = session.items.map(i => {
+      const t = i.qty * i.price;
+      total += t;
+      return `• ${i.qty} × ${i.name} = **$${t.toFixed(2)}**`;
+    }).join("\n");
 
-  doc.fontSize(20).text("Invoice", { align: "center" });
-  doc.moveDown();
-  doc.fontSize(14).text(`Customer: ${user.username}`);
-  doc.text(`Product: ${product}`);
-  doc.text(`Price: ₹${price}`);
-  doc.end();
+    const embed = new EmbedBuilder()
+      .setTitle("🧾 Invoice Preview")
+      .setDescription(list + `\n\n**Total: $${total.toFixed(2)}**`)
+      .setColor("Blue");
 
-  await new Promise((resolve) => setTimeout(resolve, 500)); // ensure write done
-
-  await interaction.reply({
-    content: `✅ Invoice generated for **${user.username}**`,
-    files: [invoicePath],
-  });
+    return interaction.reply({ embeds: [embed] });
+  }
 });
 
-client.once(Events.ClientReady, (c) => {
-  console.log(`✅ Logged in as ${c.user.tag}`);
-});
-
-client.login(TOKEN);
+client.login(process.env.BOT_TOKEN);
