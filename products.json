@@ -1,6 +1,4 @@
 [
-  { "name": "Editing", "price": 150 },
-  { "name": "Thumbnail", "price": 100 },
-  { "name": "Logo Design", "price": 300 },
-  { "name": "3D Render", "price": 500 }
+  { "id": "nitro_1m", "name": "Nitro Booster Id 1M", "price": 0.3 },
+  { "id": "ytpremium_1m", "name": "Yt Premium 1M", "price": 1.0 }
 ]
