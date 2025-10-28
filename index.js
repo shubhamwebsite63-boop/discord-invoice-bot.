@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express from "express";
 import { Client, GatewayIntentBits, Partials, EmbedBuilder, StringSelectMenuBuilder, ActionRowBuilder, Events } from "discord.js";
-import products from "./products.json" assert { type: "json" };
+const products = require("./products.json");
 
 // Web server for Render uptime
 const app = express();
@@ -94,3 +94,4 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 client.login(process.env.BOT_TOKEN);
+
