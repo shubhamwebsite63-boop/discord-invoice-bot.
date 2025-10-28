@@ -1,0 +1,6 @@
+[
+  { "name": "Editing", "price": 150 },
+  { "name": "Thumbnail", "price": 100 },
+  { "name": "Logo Design", "price": 300 },
+  { "name": "3D Render", "price": 500 }
+]
