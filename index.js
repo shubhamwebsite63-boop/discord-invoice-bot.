@@ -6,6 +6,18 @@ import {
 
 import products from "./products.json" with { type: "json" };
 
+// Keep Render happy by binding to the provided port
+import express from "express"; // or const express = require('express') if CJS
+const app = express();
+
+// optional health route
+app.get("/", (req, res) => res.send("OK - Mischief Bazzar Bot"));
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`HTTP server listening on port ${PORT}`);
+});
+
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
 });
@@ -89,6 +101,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 client.login(process.env.BOT_TOKEN);
+
 
 
 
