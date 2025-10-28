@@ -1,17 +1,11 @@
-import 'dotenv/config';
-import express from "express";
-import { Client, GatewayIntentBits, Partials, EmbedBuilder, StringSelectMenuBuilder, ActionRowBuilder, Events } from "discord.js";
-const products = require("./products.json");
+import dotenv from "dotenv";
+dotenv.config();
 
-// Web server for Render uptime
-const app = express();
-app.get("/", (req, res) => res.send("✅ Invoice Bot Running"));
-app.listen(process.env.PORT || 3000);
+import { Client, GatewayIntentBits } from "discord.js";
+import products from "./products.json" with { type: "json" };
 
-// Bot Client
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
-  partials: [Partials.Channel],
 });
 
 // Per-channel invoice sessions
@@ -94,4 +88,5 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 client.login(process.env.BOT_TOKEN);
+
 
