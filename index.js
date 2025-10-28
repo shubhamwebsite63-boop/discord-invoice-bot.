@@ -4,12 +4,11 @@ import {
   Events,
 } from "discord.js";
 
-import products from "./products.json" assert { type: "json" };
+import products from "./products.json" with { type: "json" };
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
 });
-
 // Per-channel invoice sessions
 let sessions = {};
 
@@ -90,6 +89,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 client.login(process.env.BOT_TOKEN);
+
 
 
 
