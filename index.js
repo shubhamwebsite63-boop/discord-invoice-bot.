@@ -1,8 +1,8 @@
 import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
-import products from "./products.json" assert { type: "json" };
+const products = require("./products.json");
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-
+const { Client, GatewayIntentBits } = require("discord.js");
 client.once("ready", () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 });
@@ -76,3 +76,4 @@ client.on("interactionCreate", async interaction => {
 });
 
 client.login(process.env.TOKEN);
+
