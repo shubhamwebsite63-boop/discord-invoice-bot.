@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "engines": {
-    "node": "22.x"
+    "node": ">=20"
   },
   "dependencies": {
     "discord.js": "^14.15.3",
@@ -11,3 +11,4 @@
     "canvas": "^2.11.2"
   }
 }
+
