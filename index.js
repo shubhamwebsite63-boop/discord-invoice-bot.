@@ -1,11 +1,13 @@
-import dotenv from "dotenv";
-dotenv.config();
+import {
+  Client,
+  GatewayIntentBits,
+  Events,
+} from "discord.js";
 
-import { Client, GatewayIntentBits } from "discord.js";
-import products from "./products.json" with { type: "json" };
+import products from "./products.json" assert { type: "json" };
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
 });
 
 // Per-channel invoice sessions
@@ -88,5 +90,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 client.login(process.env.BOT_TOKEN);
+
 
 
