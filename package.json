@@ -1,0 +1,8 @@
+{
+  "name": "invoice-bot",
+  "type": "module",
+  "dependencies": {
+    "discord.js": "14.16.3",
+    "express": "4.19.2"
+  }
+}
