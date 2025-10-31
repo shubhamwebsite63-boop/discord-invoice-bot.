@@ -27,9 +27,17 @@ const commands = [
     .setDescription("Create an invoice")
 ];
 
-// Register Commands
-const rest = new REST({ version: "10" }).setToken(TOKEN);
-await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+// Register Commands Function
+async function registerCommands() {
+  const rest = new REST({ version: "10" }).setToken(TOKEN);
+  try {
+    console.log("Registering slash commands...");
+    await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+    console.log("Slash commands registered ✅");
+  } catch (error) {
+    console.error(error);
+  }
+}
 
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
