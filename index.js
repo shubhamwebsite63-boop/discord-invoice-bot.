@@ -59,5 +59,5 @@ client.on(Events.InteractionCreate, async (interaction) => {
   const product = PRODUCTS.find(p => p.value === interaction.values[0]);
   await interaction.reply(`✅ **Selected:** ${product.label}\nNow send quantity.`);
 });
-
+registerCommands();
 client.login(TOKEN);
