@@ -29,3 +29,25 @@ const rest = new REST({ version: '10' }).setToken(process.env.BOT_TOKEN);
     console.error('❌ Error registering commands', err);
   }
 })();
+
+const generateInvoice = require("./invoice");
+
+client.on("messageCreate", async (message) => {
+  if (!message.content.startsWith("!invoice")) return;
+
+  const args = message.content.split(" ");
+  const customer = args[1];
+  const amount = args[2];
+
+  const fileName = await generateInvoice({
+    invoiceNo: Math.floor(Math.random() * 100000),
+    customer,
+    amount,
+    date: new Date().toLocaleDateString()
+  });
+
+  await message.channel.send({
+    content: `✅ Invoice generated for **${customer}**`,
+    files: [fileName]
+  });
+});
