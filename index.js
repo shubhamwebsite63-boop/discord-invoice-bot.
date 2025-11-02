@@ -1,10 +1,14 @@
-import { Client, GatewayIntentBits, ActionRowBuilder, StringSelectMenuBuilder } from "discord.js";
+import { 
+  Client, 
+  GatewayIntentBits, 
+  ActionRowBuilder, 
+  StringSelectMenuBuilder 
+} from "discord.js";
 import dotenv from "dotenv";
 dotenv.config();
 
 const TOKEN = process.env.TOKEN;
 
-// Create client
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -13,82 +17,77 @@ const client = new Client({
   ]
 });
 
-// **YOUR PRODUCTS**
+// PRODUCT LIST – edit as needed
 const products = [
   { label: "Hoodie", value: "Hoodie" },
   { label: "T-Shirt", value: "T-Shirt" },
   { label: "Keychain", value: "Keychain" }
 ];
 
-// Store pending invoice info here
 let waitingData = {};
 
-client.on("ready", () => {
+client.once("clientReady", () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 });
 
-// Slash command handler
-client.on("interactionCreate", async (interaction) => {
+// Slash command
+client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
+  if (interaction.commandName !== "invoice") return;
 
-  if (interaction.commandName === "invoice") {
+  await interaction.deferReply(); // ✅ prevent "Unknown interaction"
 
-    const menu = new StringSelectMenuBuilder()
-      .setCustomId("select_product")
-      .setPlaceholder("Select a product")
-      .addOptions(products);
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId("select_product")
+    .setPlaceholder("Select product")
+    .addOptions(products);
 
-    const row = new ActionRowBuilder().addComponents(menu);
+  const row = new ActionRowBuilder().addComponents(menu);
 
-    await interaction.reply({
-      content: "Select a product 👇",
-      components: [row],
-      ephemeral: false
-    });
-  }
+  await interaction.editReply({
+    content: "Select a product 👇",
+    components: [row]
+  });
 });
 
-// Product selection handler
-client.on("interactionCreate", async (interaction) => {
+// Product selection
+client.on("interactionCreate", async interaction => {
   if (!interaction.isStringSelectMenu()) return;
   if (interaction.customId !== "select_product") return;
 
-  const selectedProduct = interaction.values[0];
-
-  waitingData[interaction.user.id] = { product: selectedProduct };
+  const product = interaction.values[0];
+  waitingData[interaction.user.id] = { product };
 
   await interaction.update({
-    content: `**${selectedProduct} selected!**\n\nNow enter **quantity** in chat:`,
+    content: `✅ **${product} selected!**\nNow send **quantity** in chat.`,
     components: []
   });
 });
 
-// Quantity listener
-client.on("messageCreate", async (message) => {
+// Quantity input
+client.on("messageCreate", async message => {
   if (message.author.bot) return;
 
-  const entry = waitingData[message.author.id];
-  if (!entry) return;
+  const pending = waitingData[message.author.id];
+  if (!pending) return;
 
   const qty = parseInt(message.content);
-  if (isNaN(qty)) return message.reply("❌ Enter a **number** for quantity:");
+  if (isNaN(qty)) return message.reply("❌ Send a **number** for quantity!");
 
-  // Remove waiting state
   delete waitingData[message.author.id];
 
-  // SEND TEMP INVOICE MESSAGE
-  message.reply(
+  return message.reply(
 `🧾 **Invoice Generated**
 
-**Product:** ${entry.product}
+**Product:** ${pending.product}
 **Quantity:** ${qty}
 
 **Sold By:** Mischief Bazzar
-**Handled by:**
+**Handled By:**
 @pika.pikachuu
 @adityaxdost
 
-Prefix: **MB-XXXX**
+**Invoice Prefix:** MB-
 `
   );
 });
