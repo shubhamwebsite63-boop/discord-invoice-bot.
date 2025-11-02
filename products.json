@@ -1,4 +1,4 @@
 [
-  { "id": "nitro_1m", "name": "Nitro Booster Id 1M", "price": 0.3 },
-  { "id": "ytprem_1m", "name": "YouTube Premium 1M", "price": 1.0 }
+  { "id": "nitro_1m", "name": "Nitro Booster Id 1M", "price": 30 },
+  { "id": "ytprem_1m", "name": "YouTube Premium 1M", "price": 100 }
 ]
