@@ -47,3 +47,27 @@ const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
     }
   ]
 }
+{
+  name: "invoice-setbuyer",
+  description: "Set buyer name for invoice",
+  options: [
+    {
+      name: "name",
+      type: 3,
+      description: "Buyer Name / Username",
+      required: true
+    }
+  ]
+}
+{
+  name: "invoice-remove",
+  description: "Remove product by name",
+  options: [
+    {
+      name: "product",
+      type: 3,
+      description: "Product name to remove",
+      required: true
+    }
+  ]
+      }
