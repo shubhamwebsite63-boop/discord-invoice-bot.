@@ -1,118 +1,101 @@
-import {
-  Client,
-  GatewayIntentBits,
-  SlashCommandBuilder,
-  REST,
-  Routes,
-  Events,
-  ActionRowBuilder,
-  StringSelectMenuBuilder
-} from "discord.js";
-import express from "express";
+import { Client, GatewayIntentBits, Partials, ActionRowBuilder, ButtonBuilder, ButtonStyle, Events } from "discord.js";
 import fs from "fs";
 import PDFDocument from "pdfkit";
 
-// ENV Variables
-const TOKEN = process.env.TOKEN;
-const CLIENT_ID = process.env.CLIENT_ID;
-
-// Keep-alive server for Render
-const app = express();
-app.get("/", (req, res) => res.send("Mischief Bazzar Bot Active ✅"));
-app.listen(3000, () => console.log("🌍 KeepAlive Server Running"));
-
-// Create invoices directory if missing
-if (!fs.existsSync("./invoices")) fs.mkdirSync("./invoices");
-
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
 });
 
-// Products
-const PRODUCTS = [
-  { label: "Nitro Booster 1M - $0.30", value: "nitro", price: 0.30 },
-  { label: "YouTube Premium 1M - $1", value: "ytprem", price: 1.00 }
+const TOKEN = process.env.TOKEN;
+client.login(TOKEN);
+
+// Temporary invoice session store
+const sessions = {};
+
+const products = [
+    { id: "p1", name: "Burger", price: 120 },
+    { id: "p2", name: "Pizza", price: 250 },
+    { id: "p3", name: "Momos", price: 80 }
 ];
 
-// Slash command
-const commands = [
-  new SlashCommandBuilder().setName("invoice").setDescription("Create a PDF invoice")
-];
-
-async function registerCommands() {
-  const rest = new REST({ version: "10" }).setToken(TOKEN);
-  await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-}
-
-client.on(Events.ClientReady, () => console.log(`✅ Logged in as ${client.user.tag}`));
-
-// When /invoice is used
-client.on(Events.InteractionCreate, async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
-  if (interaction.commandName !== "invoice") return;
-
-  await interaction.deferReply(); // prevents timeout
-
-  const menu = new StringSelectMenuBuilder()
-    .setCustomId("product_select")
-    .setPlaceholder("Select a product")
-    .addOptions(PRODUCTS);
-
-  const row = new ActionRowBuilder().addComponents(menu);
-
-  await interaction.followUp({ content: "Select a product 👇", components: [row] });
+client.once(Events.ClientReady, () => {
+    console.log(`✅ Logged in as ${client.user.tag}`);
 });
 
-// When product is selected
-client.on(Events.InteractionCreate, async (interaction) => {
-  if (!interaction.isStringSelectMenu()) return;
+client.on(Events.InteractionCreate, async interaction => {
 
-  const product = PRODUCTS.find(p => p.value === interaction.values[0]);
-  await interaction.deferReply(); // prevents timeout
+    // /invoice start
+    if (interaction.isChatInputCommand() && interaction.commandName === "invoice") {
+        sessions[interaction.user.id] = { items: [], buyer: interaction.user.username };
 
-  await interaction.followUp(`✅ **Selected:** ${product.label}\nPlease enter **quantity**:`);
+        const row = new ActionRowBuilder()
+            .addComponents(products.map(p =>
+                new ButtonBuilder().setCustomId(p.id).setLabel(`${p.name} - ₹${p.price}`).setStyle(ButtonStyle.Primary)
+            ));
 
-  const filter = msg => msg.author.id === interaction.user.id;
-  const collector = interaction.channel.createMessageCollector({ filter, max: 1, time: 20000 });
-
-  collector.on("collect", async (msg) => {
-    const qty = parseInt(msg.content);
-
-    if (isNaN(qty) || qty <= 0) {
-      return msg.reply("❌ Invalid quantity. Try again.");
+        return interaction.reply({ content: "🛍 **Select a product:**", components: [row] });
     }
 
-    const total = (qty * product.price).toFixed(2);
-    const invoiceNum = `MB-${Math.floor(10000 + Math.random() * 90000)}`;
-    const filePath = `./invoices/${invoiceNum}.pdf`;
+    // Product selection
+    if (interaction.isButton()) {
+        const session = sessions[interaction.user.id];
+        if (!session) return interaction.reply({ content: "Start invoice with `/invoice` first.", ephemeral: true });
 
-    // Create PDF
-    const doc = new PDFDocument();
-    doc.pipe(fs.createWriteStream(filePath));
+        const product = products.find(p => p.id === interaction.customId);
+        if (!product) return;
 
-    doc.fontSize(22).text("Mischief Bazzar Invoice", { align: "center" });
-    doc.moveDown();
-    doc.fontSize(14).text(`Invoice No: ${invoiceNum}`);
-    doc.text(`Date: ${new Date().toLocaleDateString()}`);
-    doc.moveDown();
-    doc.text(`Item: ${product.label}`);
-    doc.text(`Quantity: ${qty}`);
-    doc.text(`Total: $${total}`);
-    doc.moveDown();
-    doc.text("Handled By:");
-    doc.text("@pika.pikachuu");
-    doc.text("@adityaxdost");
-    doc.moveDown();
-    doc.text("Sold By: Mischief Bazzar", { align: "center" });
-    doc.end();
+        session.selectedProduct = product;
 
-    await msg.reply({ content: `🧾 **Invoice Generated!**\nInvoice No: **${invoiceNum}**`, files: [filePath] });
-  });
+        return interaction.reply({ content: `Enter quantity for **${product.name}**:` });
+    }
 
-  collector.on("end", c => {
-    if (c.size === 0) interaction.followUp("⌛ Time out! Run `/invoice` again.");
-  });
+    // Quantity input
+    if (interaction.isMessage()) return; // ignore messages globally
+
 });
 
-registerCommands();
-client.login(TOKEN);
+client.on("messageCreate", async message => {
+    if (message.author.bot) return;
+
+    const session = sessions[message.author.id];
+    if (!session || !session.selectedProduct) return;
+
+    const qty = parseInt(message.content);
+    if (isNaN(qty) || qty <= 0) return message.reply("❌ **Enter a valid number.** Try again.");
+
+    session.items.push({ ...session.selectedProduct, qty });
+    session.selectedProduct = null;
+
+    await message.reply("✅ Added to invoice. Type `done` if finished or select another product again.");
+
+    // User is done
+    if (message.content.toLowerCase() === "done") {
+        if (!fs.existsSync("invoices")) fs.mkdirSync("invoices");
+
+        const invoiceId = Date.now();
+        const path = `invoices/invoice-${invoiceId}.pdf`;
+
+        const doc = new PDFDocument();
+        doc.pipe(fs.createWriteStream(path));
+
+        doc.fontSize(20).text("Invoice", { align: "center" });
+        doc.moveDown();
+        doc.fontSize(12).text(`Buyer: ${session.buyer}`);
+        doc.moveDown();
+
+        let total = 0;
+        session.items.forEach(item => {
+            const cost = item.qty * item.price;
+            total += cost;
+            doc.text(`${item.name} x ${item.qty} = ₹${cost}`);
+        });
+
+        doc.moveDown();
+        doc.fontSize(14).text(`Total: ₹${total}`);
+        doc.end();
+
+        delete sessions[message.author.id];
+
+        return message.channel.send({ content: "🧾 **Invoice Generated!**", files: [path] });
+    }
+});
