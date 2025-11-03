@@ -16,6 +16,8 @@ import {
   SlashCommandBuilder,
   AttachmentBuilder
 } from 'discord.js';
+const activeInvoices = {}; 
+// Structure per guild: { buyer: "", items: [{product, quantity, price}] }
 
 // ---------- CONFIG ----------
 const TOKEN = process.env.TOKEN;         // set in Render env
