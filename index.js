@@ -351,3 +351,7 @@ webApp.get('/', (req, res) => res.send(`${STORE_NAME} Bot is running ✅`));
 webApp.listen(process.env.PORT || 3000, '0.0.0.0', () => {
   console.log('Web keep-alive server started on port', process.env.PORT || 3000);
 });
+
+if (!isAdmin(interaction.member)) {
+  return interaction.reply({ content: "❌ Only admins can use this command.", ephemeral: true });
+}
